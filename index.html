@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Retro Snake Game</title>
+    <style>
+        body {
+            background-color: #1a1a1a;
+            color: #ffffff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        h1 {
+            margin: 5px 0;
+            font-size: 2.5rem;
+            color: #4CAF50;
+            text-shadow: 0 0 10px rgba(76, 175, 80, 0.5);
+        }
+
+        #score-board {
+            font-size: 1.5rem;
+            margin-bottom: 15px;
+            font-weight: bold;
+        }
+
+        canvas {
+            background-color: #000000;
+            border: 4px solid #4CAF50;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.8);
+            border-radius: 4px;
+        }
+
+        .controls-hint {
+            margin-top: 15px;
+            color: #888;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>SNAKE</h1>
+    <div id="score-board">Score: <span id="score">0</span></div>
+    <canvas id="gameCanvas" width="400" height="400"></canvas>
+    <div class="controls-hint">Use Arrow Keys or WASD to move</div>
+
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+        const scoreElement = document.getElementById("score");
+
+        // Grid configurations
+        const gridSize = 20; 
+        const tileCount = canvas.width / gridSize;
+
+        // Game speed variables
+        let fps = 10;
+
+        // Snake tracking
+        let snake = [
+            { x: 10, y: 10 },
+            { x: 9, y: 10 },
+            { x: 8, y: 10 }
+        ];
+
+        // Apple position
+        let apple = { x: 5, y: 5 };
+
+        // Movement velocity
+        let dx = 1;
+        let dy = 0;
+
+        // Score tracking
+        let score = 0;
+        let gameChangingDirection = false; // Prevents fast double-taps causing self-collision
+
+        // Start the game loop
+        main();
+
+        function main() {
+            if (hasGameEnded()) {
+                alert(`Game Over! Your final score is ${score}`);
+                resetGame();
+            }
+
+            gameChangingDirection = false;
+            clearCanvas();
+            drawApple();
+            moveSnake();
+            drawSnake();
+
+            // Call main function repeatedly at set FPS speed
+            setTimeout(function onTick() {
+                requestAnimationFrame(main);
+            }, 1000 / fps);
+        }
+
+        function clearCanvas() {
+            ctx.fillStyle = "#000000";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+
+        function drawSnake() {
+            snake.forEach((part, index) => {
+                // Head is brighter green than body
+                ctx.fillStyle = index === 0 ? "#4CAF50" : "#2E7D32";
+                ctx.strokeStyle = "#000000";
+                
+                ctx.fillRect(part.x * gridSize, part.y * gridSize, gridSize - 2, gridSize - 2);
+                ctx.strokeRect(part.x * gridSize, part.y * gridSize, gridSize - 2, gridSize - 2);
+            });
+        }
+
+        function moveSnake() {
+            // Create the new head based on velocity
+            const head = { x: snake[0].x + dx, y: snake[0].y + dy };
+            snake.unshift(head);
+
+            // Check if snake ate the apple
+            const hasEatenApple = snake[0].x === apple.x && snake[0].y === apple.y;
+            if (hasEatenApple) {
+                score += 10;
+                scoreElement.innerText = score;
+                generateApple();
+                // Increase difficulty slightly every 50 points
+                if (score % 50 === 0 && fps < 25) fps++; 
+            } else {
+                // Remove the tail if it didn't eat anything
+                snake.pop();
+            }
+        }
+
+        function drawApple() {
+            ctx.fillStyle = "#FF5252";
+            ctx.fillRect(apple.x * gridSize, apple.y * gridSize, gridSize - 2, gridSize - 2);
+        }
+
+        function generateApple() {
+            apple.x = Math.floor(Math.random() * tileCount);
+            apple.y = Math.floor(Math.random() * tileCount);
+
+            // Ensure apple doesn't spawn on top of the snake's body
+            snake.forEach(part => {
+                const hasSpawnedOnSnake = part.x === apple.x && part.y === apple.y;
+                if (hasSpawnedOnSnake) generateApple();
+            });
+        }
+
+        function hasGameEnded() {
+            // Check wall collisions
+            if (snake[0].x < 0 || snake[0].x >= tileCount || snake[0].y < 0 || snake[0].y >= tileCount) {
+                return true;
+            }
+            // Check self collisions
+            for (let i = 4; i < snake.length; i++) {
+                if (snake[i].x === snake[0].x && snake[i].y === snake[0].y) return true;
+            }
+            return false;
+        }
+
+        function resetGame() {
+            snake = [
+                { x: 10, y: 10 },
+                { x: 9, y: 10 },
+                { x: 8, y: 10 }
+            ];
+            dx = 1;
+            dy = 0;
+            score = 0;
+            fps = 10;
+            scoreElement.innerText = score;
+            generateApple();
+        }
+
+        // Keyboard Controls Handler
+        document.addEventListener("keydown", changeDirection);
+
+        function changeDirection(event) {
+            const keyPressed = event.keyCode;
+            const keyChar = event.key.toLowerCase();
+
+            // Prevention rules against reversing instantly into oneself
+            const goingUp = dy === -1;
+            const goingDown = dy === 1;
+            const goingRight = dx === 1;
+            const goingLeft = dx === -1;
+
+            if (gameChangingDirection) return;
+
+            // Left arrow (37) or 'a'
+            if ((keyPressed === 37 || keyChar === 'a') && !goingRight) {
+                dx = -1;
+                dy = 0;
+                gameChangingDirection = true;
+            }
+            // Up arrow (38) or 'w'
+            if ((keyPressed === 38 || keyChar === 'w') && !goingDown) {
+                dx = 0;
+                dy = -1;
+                gameChangingDirection = true;
+            }
+            // Right arrow (39) or 'd'
+            if ((keyPressed === 39 || keyChar === 'd') && !goingLeft) {
+                dx = 1;
+                dy = 0;
+                gameChangingDirection = true;
+            }
+            // Down arrow (40) or 's'
+            if ((keyPressed === 40 || keyChar === 's') && !goingUp) {
+                dx = 0;
+                dy = 1;
+                gameChangingDirection = true;
+            }
+        }
+    </script>
+</body>
+</html>
